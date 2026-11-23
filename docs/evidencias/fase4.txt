@@ -1,0 +1,29 @@
+$ B=$(terraform output -raw url_backend)
+$ seq 60 | xargs -P 20 -I{} curl -s -o /dev/null -w "%{http_code} " -X POST $B/pedidos -H 'Content-Type: application/json' -d '{"cliente": "Ráfaga {}", "items": [{"producto": "tinto", "cantidad": 1}]}'
+201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 201 
+(según el registro de solicitudes del backend, los 60 POST llegaron entre 11:47:12.2 y 11:47:15.4 UTC:
+ 3,2 s en total, latencia media 0,146 s y máxima 0,348 s por pedido)
+
+# La cocina, en cambio, terminó el primer pedido a las 11:47:18.6 y el último a las 11:47:46.9 UTC.
+
+# Estado final de los 60 pedidos de la ráfaga e inventario (consulta a Firestore):
+pedidos 'Ráfaga*': {'rechazado': 36, 'listo': 24} total 60
+inventario: {'arepa-con-queso': 8, 'cafe-con-leche': 12, 'empanada': 10, 'jugo-natural': 6, 'pastel-de-pollo': 6, 'plato-misterioso': 5, 'tinto': -4}
+
+Había 20 tintos. Lo correcto serían 20 pedidos listos y 40 rechazados, pero quedaron 24 listos
+y el tinto en -4: la cocina revisa las existencias y descuenta en dos pasos separados, así que
+varios pedidos simultáneos ven que "alcanza" antes de que alguno descuente.
+Los números en la pantalla no salen en orden: Pub/Sub no garantiza orden de entrega.
+
+# La cola, en métricas (Cloud Monitoring, suscripción jorge-adolfo-cocina y servicio jorge-adolfo-cocina):
+#   push_request_count ack (2xx):   11:47 -> 0 · 11:48 -> 51 · 11:49 -> 9
+#   push_request_count 5xx:         11:48 -> 12
+#   instance_count de la cocina:    11:47 -> 1 · 11:48 -> 3 · 11:49 -> 3   (el máximo declarado)
+# La métrica num_undelivered_messages no tuvo puntos para el minuto de la ráfaga (empezó a
+# reportar a las 11:50); por eso la cola se ve en las entregas push. Gráfica: docs/capturas/fase4-metricas.png
+#
+# Las 12 entregas 5xx no son de la cocina: son de Cloud Run, que con 3 instancias x 8 pedidos
+# ocupados no tenía dónde ponerlas. En el registro de solicitudes de la cocina:
+2026-11-23T11:47:12.942144Z  ERROR  500  The request was aborted after waiting too long for an available instance.
+... (12 líneas iguales entre 11:47:12.9 y 11:47:15.5)
+# Pub/Sub las reintentó con el backoff de la retry_policy (10 s a 60 s) y a las 11:47:46 la cola estaba vacía.
