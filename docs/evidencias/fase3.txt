@@ -1,0 +1,70 @@
+$ C=$(terraform output -raw url_cocina)
+$ curl -i -X POST $C/
+HTTP/2 403 
+date: Mon, 23 Nov 2026 11:46:03 GMT
+content-type: text/html; charset=UTF-8
+server: Google Frontend
+content-length: 295
+alt-svc: h3=":443"; ma=2592000,h3-29=":443"; ma=2592000
+
+
+<html><head>
+<meta http-equiv="content-type" content="text/html;charset=utf-8">
+<title>403 Forbidden</title>
+</head>
+
+# Registro de texto de la cocina procesando el pedido HjUyL2UaJPnhbN3TTGO6
+2026-11-23T11:45:37.654873Z	INFO:cocina:Pedido HjUyL2UaJPnhbN3TTGO6, intento de entrega desconocido
+2026-11-23T11:45:44.083376Z	INFO:cocina:Pedido HjUyL2UaJPnhbN3TTGO6 listo
+
+# Registro de solicitudes de la cocina (run.googleapis.com/requests)
+2026-11-23T11:44:27.389526Z	403	POST	APIs-Google; (+https://developers.google.com/webmasters/APIs-Google.html)	The request was not authenticated. Either allow unauthenticated invocations or set the proper Authorization header. The IAM principal lacks {run.routes.invoke} permission. Read more at https://cloud.google.com/run/docs/securing/authenticating Additional troubleshooting documentation can be found at: https://cloud.google.com/run/docs/troubleshooting#unauthorized-client
+2026-11-23T11:44:40.120826Z	403	POST	APIs-Google; (+https://developers.google.com/webmasters/APIs-Google.html)	The request was not authenticated. Either allow unauthenticated invocations or set the proper Authorization header. The IAM principal lacks {run.routes.invoke} permission. Read more at https://cloud.google.com/run/docs/securing/authenticating Additional troubleshooting documentation can be found at: https://cloud.google.com/run/docs/troubleshooting#unauthorized-client
+2026-11-23T11:44:58.100889Z	403	POST	APIs-Google; (+https://developers.google.com/webmasters/APIs-Google.html)	The request was not authenticated. Either allow unauthenticated invocations or set the proper Authorization header. The IAM principal lacks {run.routes.invoke} permission. Read more at https://cloud.google.com/run/docs/securing/authenticating Additional troubleshooting documentation can be found at: https://cloud.google.com/run/docs/troubleshooting#unauthorized-client
+2026-11-23T11:45:15.058504Z	403	POST	APIs-Google; (+https://developers.google.com/webmasters/APIs-Google.html)	The request was not authenticated. Either allow unauthenticated invocations or set the proper Authorization header. The IAM principal lacks {run.routes.invoke} permission. Read more at https://cloud.google.com/run/docs/securing/authenticating Additional troubleshooting documentation can be found at: https://cloud.google.com/run/docs/troubleshooting#unauthorized-client
+2026-11-23T11:45:36.103571Z	204	POST	APIs-Google; (+https://developers.google.com/webmasters/APIs-Google.html)	
+2026-11-23T11:46:03.000786Z	403	POST	curl/8.23.0	The request was not authenticated. Either allow unauthenticated invocations or set the proper Authorization header. Empty Authorization header value. Read more at https://cloud.google.com/run/docs/securing/authenticating Additional troubleshooting documentation can be found at: https://cloud.google.com/run/docs/troubleshooting#unauthorized-client
+
+$ gcloud pubsub subscriptions describe jorge-adolfo-cocina
+ackDeadlineSeconds: 60
+expirationPolicy:
+  ttl: 2678400s
+labels:
+  goog-terraform-provisioned: 'true'
+messageRetentionDuration: 604800s
+name: projects/project-56eb9056-3ab4-4adb-b64/subscriptions/jorge-adolfo-cocina
+pushConfig:
+  oidcToken:
+    audience: https://jorge-adolfo-cocina-sq3337hevq-uc.a.run.app
+    serviceAccountEmail: jorge-adolfo-invocador@project-56eb9056-3ab4-4adb-b64.iam.gserviceaccount.com
+  pushEndpoint: https://jorge-adolfo-cocina-sq3337hevq-uc.a.run.app
+retryPolicy:
+  maximumBackoff: 60s
+  minimumBackoff: 10s
+state: ACTIVE
+topic: projects/project-56eb9056-3ab4-4adb-b64/topics/jorge-adolfo-pedidos
+
+$ gcloud run services get-iam-policy jorge-adolfo-cocina --region us-central1
+bindings:
+- members:
+  - serviceAccount:jorge-adolfo-invocador@project-56eb9056-3ab4-4adb-b64.iam.gserviceaccount.com
+  role: roles/run.invoker
+etag: BwZg8BzOVWY=
+version: 1
+
+$ gcloud iam service-accounts get-iam-policy jorge-adolfo-invocador@...
+bindings:
+- members:
+  - serviceAccount:service-989714552015@gcp-sa-pubsub.iam.gserviceaccount.com
+  role: roles/iam.serviceAccountTokenCreator
+etag: BwZg8BtyMYk=
+version: 1
+
+$ curl -s $B/pedidos/HjUyL2UaJPnhbN3TTGO6
+{"actualizado":"2026-11-23T11:45:44.024403+00:00","cliente":"Fase 3","creado":"2026-11-23T11:44:26.573521+00:00","estado":"listo","id":"HjUyL2UaJPnhbN3TTGO6","items":[{"cantidad":1,"nombre":"Caf\u00e9 con leche","precio":2500,"producto":"cafe-con-leche"},{"cantidad":1,"nombre":"Arepa con queso","precio":4000,"producto":"arepa-con-queso"}],"motivo":null,"numero":3,"total":6500}
+
+
+# El pedido de la fase 2 sigue en recibido: el tema no tenía suscripción y lo descartó
+$ curl -s $B/pedidos/6zus6GG7jj3YAw74Twa2
+{"actualizado":"2026-11-23T11:42:34.647633+00:00","cliente":"Fase 2","creado":"2026-11-23T11:42:34.647633+00:00","estado":"recibido","id":"6zus6GG7jj3YAw74Twa2","items":[{"cantidad":1,"nombre":"Empanada","precio":2000,"producto":"empanada"}],"motivo":null,"numero":2,"total":2000}
+
