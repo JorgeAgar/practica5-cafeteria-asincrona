@@ -1,0 +1,52 @@
+# Reto 1: idempotencia
+# Todas las pruebas con PROBABILIDAD_FALLO = 0.5 (terraform apply -var cocina_probabilidad_fallo=0.5),
+# el inventario repuesto antes de cada una y la política de mensajes muertos ya activa, así que
+# cada entrega trae deliveryAttempt.
+
+## A. Cocina de la plantilla (cocina:v1): 20 pedidos de 1 tinto, con 20 tintos en inventario
+pedidos: 20  entregas totales: 38  promedio: 1.90
+distribución (entregas -> pedidos): {1: 8, 2: 7, 3: 4, 4: 1}
+deliveryAttempt máximo visto: 4
+pedidos 'Plantilla*': {'rechazado': 12, 'listo': 8} total 20
+inventario: {'arepa-con-queso': 8, 'cafe-con-leche': 12, 'empanada': 10, 'jugo-natural': 6, 'pastel-de-pollo': 6, 'plato-misterioso': 5, 'tinto': 0}
+-> Las entregas repetidas descontaron 20 tintos con solo 8 pedidos; los otros 12 se rechazaron
+   por falta de tinto aunque alcanzaba para todos. El inventario no cuadra.
+
+## B. Cocina idempotente (cocina:v2): los mismos 20 pedidos de 1 tinto
+pedidos: 20  entregas totales: 33  promedio: 1.65
+distribución (entregas -> pedidos): {1: 7, 2: 13}
+deliveryAttempt máximo visto: 2
+pedidos 'Idempotente*': {'listo': 20} total 20
+inventario: {'arepa-con-queso': 8, 'cafe-con-leche': 2, 'empanada': 10, 'jugo-natural': 6, 'pastel-de-pollo': 6, 'plato-misterioso': 5, 'tinto': 0}
+-> 20 pedidos listos y el tinto exactamente en 0: cada pedido descontó una sola vez aunque 13 de
+   ellos llegaron dos veces. Ninguno llegó una tercera vez: la segunda entrega encuentra el pedido
+   terminado y responde 204 antes de llegar a la falla simulada.
+
+## C. Entregas simultáneas del mismo pedido (cocina:v2)
+# 10 pedidos de 1 café con leche (había 12) y, un segundo después, cada id publicado 3 veces más
+# en el tema (POST .../topics/jorge-adolfo-pedidos:publish con 30 mensajes): 4 copias de cada pedido
+# en vuelo a la vez, repartidas entre instancias.
+pedidos: 10  entregas totales: 48  promedio: 4.80
+distribución (entregas -> pedidos): {4: 6, 5: 2, 6: 1, 8: 1}
+deliveryAttempt máximo visto: 2
+pedidos 'Duplicado*': {'listo': 10} total 10
+inventario: {'arepa-con-queso': 8, 'cafe-con-leche': 2, 'empanada': 10, 'jugo-natural': 6, 'pastel-de-pollo': 6, 'plato-misterioso': 5, 'tinto': 0}
+-> 10 listos y el café con leche en 2: exactamente 10 descontados con 48 entregas.
+   En los registros: 10 "listo", 4 "lo terminó otra entrega mientras tanto" (la copia llegó a la
+   segunda transacción después que otra) y 32 "ya estaba listo" (la copia llegó cuando ya había terminado).
+
+# Registros de un pedido con cuatro copias simultáneas en tres instancias distintas:
+2026-11-23T12:05:47.136018Z inst …f421400a Pedido fUv56PRiWU7HhzUXWYk8, intento de entrega 1
+2026-11-23T12:05:49.214574Z inst …956c1fd8 Pedido fUv56PRiWU7HhzUXWYk8, intento de entrega 1
+2026-11-23T12:05:49.237526Z inst …f8b86a7e Pedido fUv56PRiWU7HhzUXWYk8, intento de entrega 1
+2026-11-23T12:05:49.240911Z inst …f8b86a7e Pedido fUv56PRiWU7HhzUXWYk8, intento de entrega 1
+2026-11-23T12:05:53.255811Z inst …f421400a Pedido fUv56PRiWU7HhzUXWYk8 listo
+2026-11-23T12:05:55.310762Z inst …956c1fd8 Pedido fUv56PRiWU7HhzUXWYk8 lo terminó otra entrega mientras tanto; no se descuenta otra vez
+2026-11-23T12:05:55.310784Z inst …956c1fd8 Falla simulada en el pedido fUv56PRiWU7HhzUXWYk8: el trabajo quedó hecho pero no se confirma
+2026-11-23T12:05:55.376768Z inst …f8b86a7e Pedido fUv56PRiWU7HhzUXWYk8 lo terminó otra entrega mientras tanto; no se descuenta otra vez
+2026-11-23T12:05:55.376789Z inst …f8b86a7e Falla simulada en el pedido fUv56PRiWU7HhzUXWYk8: el trabajo quedó hecho pero no se confirma
+2026-11-23T12:05:55.407702Z inst …f8b86a7e Pedido fUv56PRiWU7HhzUXWYk8 lo terminó otra entrega mientras tanto; no se descuenta otra vez
+2026-11-23T12:06:07.001394Z inst …956c1fd8 Pedido fUv56PRiWU7HhzUXWYk8, intento de entrega 2
+2026-11-23T12:06:07.007911Z inst …956c1fd8 Pedido fUv56PRiWU7HhzUXWYk8, intento de entrega 2
+2026-11-23T12:06:07.054347Z inst …956c1fd8 Pedido fUv56PRiWU7HhzUXWYk8 ya estaba listo: entrega repetida, no se descuenta otra vez
+2026-11-23T12:06:07.055370Z inst …956c1fd8 Pedido fUv56PRiWU7HhzUXWYk8 ya estaba listo: entrega repetida, no se descuenta otra vez

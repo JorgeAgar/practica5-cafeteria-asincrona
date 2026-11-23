@@ -14,3 +14,8 @@ output "url_frontend" {
 output "url_cocina" {
   value = google_cloud_run_v2_service.cocina.uri
 }
+
+output "suscripcion_muertos" {
+  description = "Suscripción pull del tema de mensajes muertos"
+  value       = google_pubsub_subscription.muertos.name
+}

@@ -35,7 +35,7 @@ resource "google_cloud_run_v2_service" "cocina" {
     service_account = google_service_account.cocina.email
 
     scaling {
-      max_instance_count = 3
+      max_instance_count = var.cocina_max_instancias
     }
 
     # Tantas peticiones a la vez como hilos tiene gunicorn en la cocina.
@@ -47,6 +47,12 @@ resource "google_cloud_run_v2_service" "cocina" {
       env {
         name  = "BASE_DATOS"
         value = google_firestore_database.cafeteria.name
+      }
+
+      # 0 en producción. Para probar la idempotencia: -var cocina_probabilidad_fallo=0.5
+      env {
+        name  = "PROBABILIDAD_FALLO"
+        value = tostring(var.cocina_probabilidad_fallo)
       }
     }
   }
@@ -106,6 +112,15 @@ resource "google_pubsub_subscription" "cocina" {
     maximum_backoff = "60s"
   }
 
+  # Después de 10 entregas fallidas el mensaje se rinde y pasa al tema de
+  # muertos. Con el backoff de arriba (10 s a 60 s) eso son unos 7 minutos de
+  # reintentos: alcanza para un problema pasajero y no deja el plato misterioso
+  # reintentándose durante 7 días.
+  dead_letter_policy {
+    dead_letter_topic     = google_pubsub_topic.muertos.id
+    max_delivery_attempts = 10
+  }
+
   push_config {
     push_endpoint = google_cloud_run_v2_service.cocina.uri
 
@@ -118,5 +133,46 @@ resource "google_pubsub_subscription" "cocina" {
   depends_on = [
     google_cloud_run_v2_service_iam_member.invocador_cocina,
     google_service_account_iam_member.pubsub_firma_tokens,
+    google_pubsub_topic_iam_member.agente_publica_muertos,
   ]
+}
+
+# ---------- Mensajes muertos ----------
+
+# Aquí terminan los pedidos que la cocina no logró preparar después de
+# max_delivery_attempts entregas, como el plato misterioso.
+resource "google_pubsub_topic" "muertos" {
+  name = "${var.prefijo}-pedidos-muertos"
+
+  depends_on = [google_project_service.apis]
+}
+
+# Sin una suscripción, el tema de muertos descartaría los mensajes igual que el
+# tema de pedidos en la fase 2. Es pull: nadie la atiende sola, se lee a mano.
+resource "google_pubsub_subscription" "muertos" {
+  name  = "${var.prefijo}-pedidos-muertos"
+  topic = google_pubsub_topic.muertos.id
+
+  ack_deadline_seconds       = 60
+  message_retention_duration = "604800s"
+
+  # Que no caduque por falta de actividad.
+  expiration_policy {
+    ttl = ""
+  }
+}
+
+# Cuando un mensaje se rinde, el agente de Pub/Sub lo publica en el tema de
+# muertos a su nombre: necesita publicar ahí y en ningún otro tema.
+resource "google_pubsub_topic_iam_member" "agente_publica_muertos" {
+  topic  = google_pubsub_topic.muertos.name
+  role   = "roles/pubsub.publisher"
+  member = local.agente_pubsub
+}
+
+# Y lo confirma (ack) en la suscripción de la cocina para sacarlo de ahí.
+resource "google_pubsub_subscription_iam_member" "agente_confirma_cocina" {
+  subscription = google_pubsub_subscription.cocina.name
+  role         = "roles/pubsub.subscriber"
+  member       = local.agente_pubsub
 }

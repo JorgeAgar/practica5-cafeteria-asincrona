@@ -1,0 +1,32 @@
+# Reto 3: medir
+# Comando: un script en Python (medir.py, abajo) que repone el inventario, lanza 60 pedidos de un
+# producto cada uno con 20 hilos a la vez (20 tintos, 12 cafés con leche, 10 empanadas, 6 pasteles,
+# 6 arepas y 6 jugos, justo lo que cabe en el inventario) y consulta Firestore cada 5 s hasta que
+# todos terminan. El tiempo sale de los timestamps del servidor guardados en cada pedido:
+# desde el "creado" del primer pedido hasta el "actualizado" del último que quedó listo.
+# Cocina idempotente (cocina:v2), PROBABILIDAD_FALLO = 0, TIEMPO_PREPARACION = 6 s,
+# 8 pedidos a la vez por instancia. 3 repeticiones por configuración, con 20 s entre una y otra.
+# El máximo de instancias se cambió con terraform apply -var cocina_max_instancias=N.
+
+max=1 rep a: estados {'listo': 60}  último listo a los 66.6 s  mediana 41.2 s  inicio 12:14:11
+max=1 rep b: estados {'listo': 60}  último listo a los 76.1 s  mediana 41.2 s  inicio 12:15:45
+max=1 rep c: estados {'listo': 60}  último listo a los 80.8 s  mediana 35.8 s  inicio 12:17:26
+max=2 rep a: estados {'listo': 60}  último listo a los 37.3 s  mediana 17.2 s  inicio 12:19:44
+max=2 rep b: estados {'listo': 60}  último listo a los 38.2 s  mediana 26.0 s  inicio 12:20:49
+max=2 rep c: estados {'listo': 60}  último listo a los 48.6 s  mediana 26.5 s  inicio 12:21:54
+max=3 rep a: estados {'listo': 60}  último listo a los 50.2 s  mediana 29.3 s  inicio 12:10:01
+max=3 rep b: estados {'listo': 60}  último listo a los 33.1 s  mediana 12.6 s  inicio 12:11:26
+max=3 rep c: estados {'listo': 60}  último listo a los 52.4 s  mediana 12.6 s  inicio 12:12:24
+max=5 rep a: estados {'listo': 60}  último listo a los 51.4 s  mediana 13.5 s  inicio 12:23:45
+max=5 rep b: estados {'listo': 60}  último listo a los 30.4 s  mediana 7.4 s  inicio 12:25:03
+max=5 rep c: estados {'listo': 60}  último listo a los 28.0 s  mediana 7.3 s  inicio 12:26:01
+
+# Entregas que Cloud Run rechazó con 500 "aborted after waiting too long for an available instance"
+# (registro de solicitudes de la cocina, sumando las 3 repeticiones de cada configuración):
+max=3 rechazos_por_instancias_llenas=28
+max=1 rechazos_por_instancias_llenas=0
+max=2 rechazos_por_instancias_llenas=28
+max=5 rechazos_por_instancias_llenas=7
+
+# Inventario tras cada medición: todos los productos en 0 menos la arepa en 2 (8 - 6). Ejemplo:
+inventario: {'arepa-con-queso': 2, 'cafe-con-leche': 0, 'empanada': 0, 'jugo-natural': 0, 'pastel-de-pollo': 0, 'plato-misterioso': 5, 'tinto': 0}

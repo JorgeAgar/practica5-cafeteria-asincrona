@@ -36,3 +36,20 @@ variable "imagen_cocina" {
   description = "Imagen de la cocina en Artifact Registry, con su etiqueta"
   type        = string
 }
+
+variable "cocina_max_instancias" {
+  description = "Máximo de instancias de la cocina en Cloud Run (se cambia para medir)"
+  type        = number
+  default     = 3
+}
+
+variable "cocina_probabilidad_fallo" {
+  description = "Probabilidad de que la cocina responda 500 después de terminar (0 a 1)"
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.cocina_probabilidad_fallo >= 0 && var.cocina_probabilidad_fallo <= 1
+    error_message = "La probabilidad de fallo va de 0 a 1."
+  }
+}

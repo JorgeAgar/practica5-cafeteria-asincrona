@@ -1,0 +1,63 @@
+# Reto 2: mensajes muertos
+# Pedido del plato misterioso a las 12:09:40 UTC:
+$ curl -s -X POST $B/pedidos -d '{"cliente": "Misterio", "items": [{"producto": "plato-misterioso", "cantidad": 1}]}'
+{"actualizado":"2026-11-23T12:09:40.234233+00:00","cliente":"Misterio","creado":"2026-11-23T12:09:40.234233+00:00","estado":"recibido","id":"WuHIHXnznjIgVKTx2Y7v","items":[{"cantidad":1,"nombre":"Plato misterioso","precio":9900,"producto":"plato-misterioso"}],"motivo":null,"numero":118,"total":9900}
+
+
+# Registros de la cocina: deliveryAttempt ya no dice "desconocido", y después del 10 no hay más intentos
+2026-11-23T12:09:44.848062Z	INFO:cocina:Pedido WuHIHXnznjIgVKTx2Y7v, intento de entrega 1
+2026-11-23T12:09:57.896566Z	INFO:cocina:Pedido WuHIHXnznjIgVKTx2Y7v, intento de entrega 2
+2026-11-23T12:10:15.910271Z	INFO:cocina:Pedido WuHIHXnznjIgVKTx2Y7v, intento de entrega 3
+2026-11-23T12:10:36.567160Z	INFO:cocina:Pedido WuHIHXnznjIgVKTx2Y7v, intento de entrega 4
+2026-11-23T12:10:57.525910Z	INFO:cocina:Pedido WuHIHXnznjIgVKTx2Y7v, intento de entrega 5
+2026-11-23T12:11:26.612567Z	INFO:cocina:Pedido WuHIHXnznjIgVKTx2Y7v, intento de entrega 6
+2026-11-23T12:11:55.547751Z	INFO:cocina:Pedido WuHIHXnznjIgVKTx2Y7v, intento de entrega 7
+2026-11-23T12:12:43.692222Z	INFO:cocina:Pedido WuHIHXnznjIgVKTx2Y7v, intento de entrega 8
+2026-11-23T12:13:30.711209Z	INFO:cocina:Pedido WuHIHXnznjIgVKTx2Y7v, intento de entrega 9
+2026-11-23T12:14:28.061228Z	INFO:cocina:Pedido WuHIHXnznjIgVKTx2Y7v, intento de entrega 10
+
+# Cada intento termina en el error de la cocina, que responde 500 (última línea del traceback):
+2026-11-23T12:14:28.108427Z  ... RuntimeError: La cocina no tiene receta para el plato misterioso (pedido WuHIHXnznjIgVKTx2Y7v)
+
+# El mensaje, leído desde la suscripción del tema de muertos:
+$ gcloud pubsub subscriptions pull jorge-adolfo-pedidos-muertos --auto-ack --limit=5
+┌──────────────────────┬───────────────────┬──────────────┬───────────────────────────────────────────────────────────────────────────────┬──────────────────┬────────────┐
+│         DATA         │     MESSAGE_ID    │ ORDERING_KEY │                                   ATTRIBUTES                                  │ DELIVERY_ATTEMPT │ ACK_STATUS │
+├──────────────────────┼───────────────────┼──────────────┼───────────────────────────────────────────────────────────────────────────────┼──────────────────┼────────────┤
+│ WuHIHXnznjIgVKTx2Y7v │ 23442067211326230 │              │ CloudPubSubDeadLetterSourceDeliveryCount=10                                   │                  │ SUCCESS    │
+│                      │                   │              │ CloudPubSubDeadLetterSourceSubscription=jorge-adolfo-cocina                   │                  │            │
+│                      │                   │              │ CloudPubSubDeadLetterSourceSubscriptionProject=project-56eb9056-3ab4-4adb-b64 │                  │            │
+│                      │                   │              │ CloudPubSubDeadLetterSourceTopicPublishTime=2026-11-23T12:09:40.389+00:00     │                  │            │
+└──────────────────────┴───────────────────┴──────────────┴───────────────────────────────────────────────────────────────────────────────┴──────────────────┴────────────┘
+
+$ gcloud pubsub subscriptions pull jorge-adolfo-pedidos-muertos --auto-ack --limit=5 --format=json   # (otra lectura, ya vacía)
+[]
+
+$ gcloud pubsub subscriptions describe jorge-adolfo-cocina --format="yaml(deadLetterPolicy,retryPolicy,ackDeadlineSeconds)"
+ackDeadlineSeconds: 60
+deadLetterPolicy:
+  deadLetterTopic: projects/project-56eb9056-3ab4-4adb-b64/topics/jorge-adolfo-pedidos-muertos
+  maxDeliveryAttempts: 10
+retryPolicy:
+  maximumBackoff: 60s
+  minimumBackoff: 10s
+
+$ gcloud pubsub topics get-iam-policy jorge-adolfo-pedidos-muertos
+bindings:
+- members:
+  - serviceAccount:service-989714552015@gcp-sa-pubsub.iam.gserviceaccount.com
+  role: roles/pubsub.publisher
+etag: BwZg8EjHFKk=
+version: 1
+
+$ gcloud pubsub subscriptions get-iam-policy jorge-adolfo-cocina
+bindings:
+- members:
+  - serviceAccount:service-989714552015@gcp-sa-pubsub.iam.gserviceaccount.com
+  role: roles/pubsub.subscriber
+etag: BwZg8ElzPDk=
+version: 1
+
+$ curl -s $B/pedidos/WuHIHXnznjIgVKTx2Y7v   # el pedido se queda en preparando, pero ya nadie lo reintenta
+{"actualizado":"2026-11-23T12:14:28.084855+00:00","cliente":"Misterio","creado":"2026-11-23T12:09:40.234233+00:00","estado":"preparando","id":"WuHIHXnznjIgVKTx2Y7v","items":[{"cantidad":1,"nombre":"Plato misterioso","precio":9900,"producto":"plato-misterioso"}],"motivo":null,"numero":118,"total":9900}
+
