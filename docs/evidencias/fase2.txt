@@ -1,0 +1,24 @@
+# Registro del backend: el pedido se publicó en el tema
+$ gcloud logging read 'resource.labels.service_name="jorge-adolfo-backend" AND textPayload:"6zus6GG7jj3YAw74Twa2"'
+2026-11-23T11:42:34.933620Z	INFO:backend:Pedido 6zus6GG7jj3YAw74Twa2 publicado en projects/project-56eb9056-3ab4-4adb-b64/topics/jorge-adolfo-pedidos
+
+$ gcloud pubsub topics describe jorge-adolfo-pedidos
+labels:
+  goog-terraform-provisioned: 'true'
+name: projects/project-56eb9056-3ab4-4adb-b64/topics/jorge-adolfo-pedidos
+
+$ gcloud pubsub topics get-iam-policy jorge-adolfo-pedidos
+bindings:
+- members:
+  - serviceAccount:jorge-adolfo-backend@project-56eb9056-3ab4-4adb-b64.iam.gserviceaccount.com
+  role: roles/pubsub.publisher
+etag: BwZg8BXFnTk=
+version: 1
+
+$ gcloud pubsub topics list-subscriptions jorge-adolfo-pedidos
+Listed 0 items.
+(sin suscripciones: el tema descarta el mensaje)
+
+$ curl -s $B/pedidos/6zus6GG7jj3YAw74Twa2   # minutos después
+{"actualizado":"2026-11-23T11:42:34.647633+00:00","cliente":"Fase 2","creado":"2026-11-23T11:42:34.647633+00:00","estado":"recibido","id":"6zus6GG7jj3YAw74Twa2","items":[{"cantidad":1,"nombre":"Empanada","precio":2000,"producto":"empanada"}],"motivo":null,"numero":2,"total":2000}
+
