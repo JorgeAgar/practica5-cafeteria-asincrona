@@ -1,0 +1,83 @@
+$ B=$(terraform output -raw url_backend)
+$ for i in 1 2 3 4; do curl -s -o /dev/null -w "%{http_code} " -X POST $B/pedidos -H 'Content-Type: application/json' -d '{"cliente": "Prueba '$i'", "items": [{"producto": "tinto", "cantidad": 1}]}'; done
+201 201 201 201 
+
+# Un par de minutos después (consulta a Firestore):
+pedidos 'Prueba*': {'listo': 4} total 4
+inventario: {'arepa-con-queso': 8, 'cafe-con-leche': 12, 'empanada': 10, 'jugo-natural': 6, 'pastel-de-pollo': 6, 'plato-misterioso': 5, 'tinto': 3}
+
+Con el inventario repuesto había 20 tintos. Si cada pedido descontara una sola vez quedarían 16;
+quedaron 3: se descontaron 17 tintos por 4 pedidos.
+
+# Veces que la cocina marcó "listo" cada pedido (registros de la cocina):
+      5 Pedido mirTbgufYGPGeWTOJ9Jb listo
+      5 Pedido saVSxn5MbqpbWjP7bc0C listo
+      2 Pedido wA7JGCDSUBOjCY8AzKwN listo
+      5 Pedido yzjisATdbIjwHSs2vw7r listo
+
+# Registros de la cocina para el pedido mirTbgufYGPGeWTOJ9Jb (procesado 5 veces):
+2026-11-23T11:49:36.719131Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb, intento de entrega desconocido
+2026-11-23T11:49:43.167656Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb listo
+2026-11-23T11:49:43.167687Z	WARNING:cocina:Falla simulada en el pedido mirTbgufYGPGeWTOJ9Jb: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:49:55.716434Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb, intento de entrega desconocido
+2026-11-23T11:50:01.874931Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb listo
+2026-11-23T11:50:01.874964Z	WARNING:cocina:Falla simulada en el pedido mirTbgufYGPGeWTOJ9Jb: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:50:17.635581Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb, intento de entrega desconocido
+2026-11-23T11:50:23.770406Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb listo
+2026-11-23T11:50:23.770432Z	WARNING:cocina:Falla simulada en el pedido mirTbgufYGPGeWTOJ9Jb: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:50:44.407351Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb, intento de entrega desconocido
+2026-11-23T11:50:50.563484Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb listo
+2026-11-23T11:50:50.563727Z	WARNING:cocina:Falla simulada en el pedido mirTbgufYGPGeWTOJ9Jb: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:51:12.478005Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb, intento de entrega desconocido
+2026-11-23T11:51:18.559282Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb listo
+
+# Todos los registros de la cocina durante la prueba:
+2026-11-23T11:49:33.520857Z	[2026-11-23 11:49:33 +0000] [1] [INFO] Control socket listening at /root/.gunicorn/gunicorn.ctl
+2026-11-23T11:49:36.719131Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb, intento de entrega desconocido
+2026-11-23T11:49:36.722564Z	INFO:cocina:Pedido saVSxn5MbqpbWjP7bc0C, intento de entrega desconocido
+2026-11-23T11:49:36.723709Z	INFO:cocina:Pedido wA7JGCDSUBOjCY8AzKwN, intento de entrega desconocido
+2026-11-23T11:49:36.724147Z	INFO:cocina:Pedido yzjisATdbIjwHSs2vw7r, intento de entrega desconocido
+2026-11-23T11:49:43.135881Z	INFO:cocina:Pedido yzjisATdbIjwHSs2vw7r listo
+2026-11-23T11:49:43.135981Z	WARNING:cocina:Falla simulada en el pedido yzjisATdbIjwHSs2vw7r: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:49:43.152281Z	INFO:cocina:Pedido wA7JGCDSUBOjCY8AzKwN listo
+2026-11-23T11:49:43.152788Z	WARNING:cocina:Falla simulada en el pedido wA7JGCDSUBOjCY8AzKwN: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:49:43.167656Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb listo
+2026-11-23T11:49:43.167687Z	WARNING:cocina:Falla simulada en el pedido mirTbgufYGPGeWTOJ9Jb: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:49:43.176796Z	INFO:cocina:Pedido saVSxn5MbqpbWjP7bc0C listo
+2026-11-23T11:49:43.176810Z	WARNING:cocina:Falla simulada en el pedido saVSxn5MbqpbWjP7bc0C: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:49:54.720697Z	INFO:cocina:Pedido yzjisATdbIjwHSs2vw7r, intento de entrega desconocido
+2026-11-23T11:49:55.685164Z	[2026-11-23 11:49:55 +0000] [1] [INFO] Control socket listening at /root/.gunicorn/gunicorn.ctl
+2026-11-23T11:49:55.716434Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb, intento de entrega desconocido
+2026-11-23T11:49:56.732647Z	INFO:cocina:Pedido wA7JGCDSUBOjCY8AzKwN, intento de entrega desconocido
+2026-11-23T11:49:57.735022Z	INFO:cocina:Pedido saVSxn5MbqpbWjP7bc0C, intento de entrega desconocido
+2026-11-23T11:50:00.949752Z	INFO:cocina:Pedido yzjisATdbIjwHSs2vw7r listo
+2026-11-23T11:50:00.952116Z	WARNING:cocina:Falla simulada en el pedido yzjisATdbIjwHSs2vw7r: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:50:01.874931Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb listo
+2026-11-23T11:50:01.874964Z	WARNING:cocina:Falla simulada en el pedido mirTbgufYGPGeWTOJ9Jb: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:50:02.858297Z	INFO:cocina:Pedido wA7JGCDSUBOjCY8AzKwN listo
+2026-11-23T11:50:03.853761Z	INFO:cocina:Pedido saVSxn5MbqpbWjP7bc0C listo
+2026-11-23T11:50:03.853783Z	WARNING:cocina:Falla simulada en el pedido saVSxn5MbqpbWjP7bc0C: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:50:17.635581Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb, intento de entrega desconocido
+2026-11-23T11:50:17.638655Z	INFO:cocina:Pedido yzjisATdbIjwHSs2vw7r, intento de entrega desconocido
+2026-11-23T11:50:20.541706Z	INFO:cocina:Pedido saVSxn5MbqpbWjP7bc0C, intento de entrega desconocido
+2026-11-23T11:50:23.770406Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb listo
+2026-11-23T11:50:23.770432Z	WARNING:cocina:Falla simulada en el pedido mirTbgufYGPGeWTOJ9Jb: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:50:23.797571Z	INFO:cocina:Pedido yzjisATdbIjwHSs2vw7r listo
+2026-11-23T11:50:23.797593Z	WARNING:cocina:Falla simulada en el pedido yzjisATdbIjwHSs2vw7r: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:50:26.655244Z	INFO:cocina:Pedido saVSxn5MbqpbWjP7bc0C listo
+2026-11-23T11:50:26.655304Z	WARNING:cocina:Falla simulada en el pedido saVSxn5MbqpbWjP7bc0C: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:50:40.392721Z	INFO:cocina:Pedido yzjisATdbIjwHSs2vw7r, intento de entrega desconocido
+2026-11-23T11:50:44.407351Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb, intento de entrega desconocido
+2026-11-23T11:50:46.416998Z	INFO:cocina:Pedido saVSxn5MbqpbWjP7bc0C, intento de entrega desconocido
+2026-11-23T11:50:46.488556Z	INFO:cocina:Pedido yzjisATdbIjwHSs2vw7r listo
+2026-11-23T11:50:46.488590Z	WARNING:cocina:Falla simulada en el pedido yzjisATdbIjwHSs2vw7r: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:50:50.563484Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb listo
+2026-11-23T11:50:50.563727Z	WARNING:cocina:Falla simulada en el pedido mirTbgufYGPGeWTOJ9Jb: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:50:52.527651Z	INFO:cocina:Pedido saVSxn5MbqpbWjP7bc0C listo
+2026-11-23T11:50:52.527676Z	WARNING:cocina:Falla simulada en el pedido saVSxn5MbqpbWjP7bc0C: el trabajo quedó hecho pero no se confirma
+2026-11-23T11:51:11.471498Z	INFO:cocina:Pedido saVSxn5MbqpbWjP7bc0C, intento de entrega desconocido
+2026-11-23T11:51:12.478005Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb, intento de entrega desconocido
+2026-11-23T11:51:12.481555Z	INFO:cocina:Pedido yzjisATdbIjwHSs2vw7r, intento de entrega desconocido
+2026-11-23T11:51:17.647575Z	INFO:cocina:Pedido saVSxn5MbqpbWjP7bc0C listo
+2026-11-23T11:51:18.559282Z	INFO:cocina:Pedido mirTbgufYGPGeWTOJ9Jb listo
+2026-11-23T11:51:18.566558Z	INFO:cocina:Pedido yzjisATdbIjwHSs2vw7r listo
