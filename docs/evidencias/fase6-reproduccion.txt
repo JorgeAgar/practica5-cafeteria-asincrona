@@ -1,0 +1,38 @@
+# Reto 4: reproducción desde cero
+# terraform destroy terminó a las 12:29 UTC:
+Destroy complete! Resources: 29 destroyed.
+
+# Reinicio: date: Mon, 23 Nov 2026 12:34:44 GMT
+$ terraform apply -target=google_artifact_registry_repository.registro
+Apply complete! Resources: 8 added, 0 changed, 0 destroyed.
+
+$ docker build/push de backend:v1, frontend:v1 y cocina:v2
+us-central1-docker.pkg.dev/project-56eb9056-3ab4-4adb-b64/jorge-adolfo-imagenes/backend:v1
+us-central1-docker.pkg.dev/project-56eb9056-3ab4-4adb-b64/jorge-adolfo-imagenes/frontend:v1
+us-central1-docker.pkg.dev/project-56eb9056-3ab4-4adb-b64/jorge-adolfo-imagenes/cocina:v2
+
+$ terraform apply
+Apply complete! Resources: 21 added, 0 changed, 0 destroyed.
+registro = "us-central1-docker.pkg.dev/project-56eb9056-3ab4-4adb-b64/jorge-adolfo-imagenes"
+suscripcion_muertos = "jorge-adolfo-pedidos-muertos"
+url_backend = "https://jorge-adolfo-backend-sq3337hevq-uc.a.run.app"
+url_cocina = "https://jorge-adolfo-cocina-sq3337hevq-uc.a.run.app"
+url_frontend = "https://jorge-adolfo-frontend-sq3337hevq-uc.a.run.app"
+
+# Prueba después de reproducir
+intento 1: sin respuesta (000) mientras arrancaba el backend; se repitió a los 20 s
+POST /pedidos -> 201, id t7fxqaj5OBnW6naUf18H
+$ curl -s $B/pedidos/t7fxqaj5OBnW6naUf18H
+{"actualizado":"2026-11-23T12:38:16.452771+00:00","cliente":"Reproducci\u00f3n","creado":"2026-11-23T12:38:04.264655+00:00","estado":"listo","id":"t7fxqaj5OBnW6naUf18H","items":[{"cantidad":2,"nombre":"Empanada","precio":2000,"producto":"empanada"},{"cantidad":1,"nombre":"Tinto","precio":1500,"producto":"tinto"}],"motivo":null,"numero":1,"total":5500}
+
+inventario: {'arepa-con-queso': 8, 'cafe-con-leche': 12, 'empanada': 8, 'jugo-natural': 6, 'pastel-de-pollo': 6, 'plato-misterioso': 5, 'tinto': 19}
+
+$ curl -i -X POST $C/
+HTTP/2 403 
+
+$ terraform plan
+No changes. Your infrastructure matches the configuration.
+
+# 8 + 21 = 29 recursos, los mismos que destruyó el destroy, y las mismas URL que antes.
+# Ningún paso en la consola: solo terraform, docker build/push y gcloud auth configure-docker.
+# Al final se hizo otro terraform destroy para no dejar nada cobrando.
