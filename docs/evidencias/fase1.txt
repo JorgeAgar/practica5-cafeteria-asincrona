@@ -1,0 +1,30 @@
+$ gcloud config list
+[core]
+disable_usage_reporting = True
+project = project-56eb9056-3ab4-4adb-b64
+
+Your active configuration is: [default]
+[environment: untagged] Read more to tag: g.co/cloud/project-env-tag.
+
+$ gcloud artifacts docker images list us-central1-docker.pkg.dev/project-56eb9056-3ab4-4adb-b64/jorge-adolfo-imagenes --include-tags
+Listing items under project project-56eb9056-3ab4-4adb-b64, location us-central1, repository jorge-adolfo-imagenes.
+
+IMAGE     TAGS  CREATE_TIME
+backend         2026-11-23 11:36
+backend         2026-11-23 11:36
+backend   v1    2026-11-23 11:36
+cocina          2026-11-23 11:38
+cocina    v1    2026-11-23 11:38
+cocina          2026-11-23 11:38
+frontend        2026-11-23 11:36
+frontend  v1    2026-11-23 11:36
+frontend        2026-11-23 11:36
+
+$ curl -s $B/pedidos/9mkGjN1e2r54yLvhVKuF   # un rato después
+{"actualizado":"2026-11-23T11:40:27.036439+00:00","cliente":"Fase 1","creado":"2026-11-23T11:40:27.036439+00:00","estado":"recibido","id":"9mkGjN1e2r54yLvhVKuF","items":[{"cantidad":1,"nombre":"Tinto","precio":1500,"producto":"tinto"}],"motivo":null,"numero":1,"total":1500}
+
+
+# Registros del backend: el primer intento dio 500 porque el permiso sobre Firestore
+# todavía no se había propagado; el segundo respondió 201 y dejó esta advertencia:
+$ gcloud logging read 'resource.labels.service_name="jorge-adolfo-backend" AND textPayload:"TEMA"'
+2026-11-23T11:40:27.238629Z  WARNING:backend:TEMA está vacío: el pedido 9mkGjN1e2r54yLvhVKuF se guardó pero nadie le avisa a la cocina
